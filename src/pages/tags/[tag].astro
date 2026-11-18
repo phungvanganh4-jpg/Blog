@@ -16,8 +16,8 @@ const { tag } = Astro.params;
 const { posts } = Astro.props;
 ---
 
-<Base title={`#${tag}`} cover={`tag/${tag}`}>
-  <div class="wrap page">
+<Base title={`#${tag}`}>
+  <div class="wrap narrow">
     <a class="mono back" href={url('/posts/')}>← 文章</a>
     <h1 class="title rise">#{tag}</h1>
     <div class="list">
@@ -29,12 +29,12 @@ const { posts } = Astro.props;
 <style>
   .back {
     display: inline-block;
-    margin-bottom: 1.2rem;
+    margin-bottom: 0.8rem;
   }
   .back:hover {
-    color: var(--fg);
+    color: var(--accent);
   }
   .list {
-    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+    margin-top: 2rem;
   }
 </style>

@@ -3,8 +3,8 @@ import Base from '../layouts/Base.astro';
 import { links, site } from '../site.config';
 ---
 
-<Base title="关于" cover="about">
-  <div class="wrap page">
+<Base title="关于">
+  <div class="wrap narrow">
     <h1 class="title rise">{site.name}</h1>
     {site.bio && <p class="bio rise" style="--i:1">{site.bio}</p>}
     {
@@ -14,9 +14,6 @@ import { links, site } from '../site.config';
             <li>
               <a class="row" href={l.href} rel="me noopener">
                 <span class="row-title">{l.label}</span>
-                <span class="row-arrow" aria-hidden="true">
-                  ↗
-                </span>
               </a>
             </li>
           ))}
@@ -28,13 +25,13 @@ import { links, site } from '../site.config';
 
 <style>
   .bio {
-    margin-top: 2rem;
+    margin-top: 1.2rem;
     max-width: 34em;
-    font-size: 1.2rem;
-    line-height: 1.8;
+    font-size: 1.08rem;
+    line-height: 1.85;
     color: var(--fg-2);
   }
   .links {
-    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+    margin-top: 2rem;
   }
 </style>

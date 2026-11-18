@@ -75,7 +75,7 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
 <script>
   import { mountGlass } from '../lib/glass';
   import { drawTree } from '../lib/freegroup';
-  import { paintHome, posterFonts, STEP_SECONDS } from '../lib/poster';
+  import { paintHome, posterFonts } from '../lib/poster';
 
   let dispose: (() => void) | null = null;
 
@@ -105,7 +105,7 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
     hero.classList.toggle('no-gl', !dispose);
   }
 
-  // ── 群论模块里的小圆盘：同一棵 Cayley 树，不带玻璃，纯 2D ──
+  // ── 系列模块里的小圆盘：同一棵 Cayley 树的一帧静止画面（会动的版本在点进去之后）──
   let stopDiscs: (() => void) | null = null;
 
   function initDiscs() {
@@ -113,50 +113,41 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
     stopDiscs = null;
     const canvases = [...document.querySelectorAll<HTMLCanvasElement>('[data-tree-disc]')];
     if (!canvases.length) return;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const visible = new Set<Element>();
-    const io = new IntersectionObserver((entries) =>
-      entries.forEach((en) => (en.isIntersecting ? visible.add(en.target) : visible.delete(en.target))),
-    );
-    canvases.forEach((c) => io.observe(c));
-    let raf = 0;
-    const t0 = performance.now();
 
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
+    const paint = () => {
       const cs = getComputedStyle(document.documentElement);
       const v = (name: string) => cs.getPropertyValue(name).trim();
       const line = v('--fg'); // 树
       const arc = v('--bg'); // 基本域的弧
-      const red = v('--accent');
       for (const canvas of canvases) {
-        if (!visible.has(canvas)) continue;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const size = Math.round(canvas.clientWidth * dpr);
-        if (canvas.width !== size) canvas.width = canvas.height = size;
+        if (!size) continue;
+        canvas.width = canvas.height = size;
         const ctx = canvas.getContext('2d')!;
         const R = size / 2 - 2 * dpr;
-        ctx.clearRect(0, 0, size, size);
-        ctx.fillStyle = red;
+        ctx.fillStyle = v('--accent');
         ctx.beginPath();
         ctx.arc(size / 2, size / 2, R, 0, Math.PI * 2);
         ctx.fill();
         ctx.save();
         ctx.clip();
-        const seconds = reduced ? 0 : (now - t0) / 1000;
-        drawTree(ctx, size / 2, size / 2, R, seconds / STEP_SECONDS, { a: line, b: line, node: line, tile: arc }, {
+        drawTree(ctx, size / 2, size / 2, R, 0.35, { a: line, b: line, node: line, tile: arc }, {
           rotate: -13,
           minLen: 2.2 * dpr,
           weight: Math.max(1, R / 260),
         });
         ctx.restore();
       }
-      if (reduced) cancelAnimationFrame(raf);
     };
-    raf = requestAnimationFrame(frame);
+
+    const ro = new ResizeObserver(paint);
+    canvases.forEach((c) => ro.observe(c));
+    document.addEventListener('themechange', paint);
+    paint();
     stopDiscs = () => {
-      cancelAnimationFrame(raf);
-      io.disconnect();
+      ro.disconnect();
+      document.removeEventListener('themechange', paint);
     };
   }
 
@@ -256,14 +247,15 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
 
   .latest,
   .module {
-    padding-top: clamp(3.5rem, 8vw, 6.5rem);
+    max-width: calc(54rem + var(--gutter) * 2);
+    padding-top: clamp(3rem, 6vw, 4.5rem);
   }
 
   /* ───────────── 系列模块：一块反色的厚板，右边压着会动的红色圆盘 ───────────── */
   .slab {
     position: relative;
     display: block;
-    height: clamp(210px, 26vw, 320px);
+    height: clamp(190px, 24vw, 260px);
     overflow: hidden;
     background: var(--fg);
     color: var(--bg);
@@ -285,20 +277,20 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
     position: absolute;
     right: clamp(-2rem, 4vw, 5rem);
     top: 50%;
-    width: clamp(240px, 34vw, 430px);
+    width: clamp(220px, 30vw, 340px);
     aspect-ratio: 1;
     transform: translateY(-50%);
     transition: transform 0.9s var(--ease);
   }
   .slab:hover .slab-disc {
-    transform: translateY(-50%) scale(1.07);
+    transform: translateY(-50%) scale(1.04);
   }
   .slab-title {
     position: absolute;
     left: clamp(1.1rem, 3vw, 2.4rem);
     bottom: clamp(0.7rem, 1.8vw, 1.4rem);
     font-family: var(--display);
-    font-size: clamp(3.2rem, 9.4vw, 7.6rem);
+    font-size: clamp(2.8rem, 8vw, 5.6rem);
     font-weight: 900;
     font-synthesis: none;
     line-height: 0.98;
@@ -341,7 +333,7 @@ const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
     color: var(--accent);
   }
   .empty {
-    padding-block: 2rem;
-    border-top: 5px solid var(--fg);
+    padding-block: 1.5rem;
+    border-top: 2px solid var(--fg);
   }
 </style>

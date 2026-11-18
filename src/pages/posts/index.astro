@@ -12,8 +12,8 @@ const series = Object.entries(seriesMeta)
   .filter((s) => s.count > 0);
 ---
 
-<Base title="文章" cover="posts">
-  <div class="wrap page">
+<Base title="文章">
+  <div class="wrap narrow">
     <h1 class="title rise">文章</h1>
 
     {
@@ -50,19 +50,19 @@ const series = Object.entries(seriesMeta)
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 2rem;
+    margin-top: 1.2rem;
   }
   .chip.strong {
     color: var(--fg);
     border-color: var(--fg);
   }
   .year {
-    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+    margin-top: 2.6rem;
   }
   .year-label {
-    padding-bottom: 0.9rem;
+    padding-bottom: 0.6rem;
   }
   .empty {
-    margin-top: 3rem;
+    margin-top: 2rem;
   }
 </style>

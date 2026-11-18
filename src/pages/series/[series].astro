@@ -19,9 +19,9 @@ const meta = seriesMeta[key];
 const animated = meta.hero === 'cayley';
 ---
 
-<Base title={meta.title} bleed={animated} cover={animated ? undefined : `series/${key}`}>
+<Base title={meta.title} bleed={animated}>
   {animated && <GroupHero title={meta.title} />}
-  <div class="wrap page">
+  <div class:list={["wrap narrow", { below: animated }]}>
     {!animated && <h1 class="title rise">{meta.title}</h1>}
     <div class="section-label">
       <span class="label">章节</span>
@@ -32,12 +32,14 @@ const animated = meta.hero === 'cayley';
 </Base>
 
 <style>
+  .below {
+    padding-top: clamp(2.2rem, 5vw, 3.4rem);
+  }
   .title {
-    font-size: clamp(2.6rem, 8vw, 6rem);
-    margin-bottom: clamp(2rem, 5vw, 3.5rem);
+    margin-bottom: 2rem;
   }
   .empty {
-    padding-block: 2rem;
-    border-top: 5px solid var(--fg);
+    padding-block: 1.5rem;
+    border-top: 2px solid var(--fg);
   }
 </style>

@@ -26,9 +26,6 @@ const { posts, numbered = false } = Astro.props;
               {!numbered && s && <span>{s.title}</span>}
               <time datetime={post.data.date.toISOString()}>{fmtDate(post.data.date)}</time>
             </span>
-            <span class="row-arrow" aria-hidden="true">
-              ↗
-            </span>
           </a>
         </li>
       );
