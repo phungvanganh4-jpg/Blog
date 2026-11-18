@@ -1,0 +1,43 @@
+---
+import Base from '../../layouts/Base.astro';
+import GroupHero from '../../components/GroupHero.astro';
+import PostList from '../../components/PostList.astro';
+import { getPosts, postsOfSeries } from '../../lib/posts';
+import { seriesMeta } from '../../site.config';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return Object.keys(seriesMeta).map((key) => ({
+    params: { series: key },
+    props: { chapters: postsOfSeries(posts, key) },
+  }));
+}
+
+const key = Astro.params.series!;
+const { chapters } = Astro.props;
+const meta = seriesMeta[key];
+const animated = meta.hero === 'cayley';
+---
+
+<Base title={meta.title} bleed={animated} cover={animated ? undefined : `series/${key}`}>
+  {animated && <GroupHero title={meta.title} />}
+  <div class="wrap page">
+    {!animated && <h1 class="title rise">{meta.title}</h1>}
+    <div class="section-label">
+      <span class="label">章节</span>
+      <span class="mono">{chapters.length} 章</span>
+    </div>
+    {chapters.length > 0 ? <PostList posts={chapters} numbered /> : <p class="empty mono">还没有章节</p>}
+  </div>
+</Base>
+
+<style>
+  .title {
+    font-size: clamp(2.6rem, 8vw, 6rem);
+    margin-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .empty {
+    padding-block: 2rem;
+    border-top: 5px solid var(--fg);
+  }
+</style>

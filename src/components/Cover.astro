@@ -1,0 +1,62 @@
+---
+// 页面顶部的横幅：一张由 seed 生成的小海报，上面漂着玻璃液珠。
+interface Props {
+  seed: string;
+}
+const { seed } = Astro.props;
+---
+
+<div class="cover">
+  <canvas data-cover={seed} aria-hidden="true"></canvas>
+</div>
+
+<script>
+  import { mountGlass } from '../lib/glass';
+  import { paintCover } from '../lib/poster';
+
+  let disposers: (() => void)[] = [];
+
+  function init() {
+    disposers.forEach((d) => d());
+    disposers = [];
+    document.querySelectorAll<HTMLCanvasElement>('[data-cover]').forEach((canvas) => {
+      // 用 seed 算一个时间偏移，每张封面上的液珠位置都不一样
+      let h = 0;
+      for (const ch of canvas.dataset.cover!) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+      const dispose = mountGlass(canvas, {
+        phase: h % 240,
+        scale: canvas.clientWidth < 640 ? 1.5 : 2,
+        count: canvas.clientWidth < 640 ? 3 : 4,
+        paint(ctx, W, H) {
+          const cs = getComputedStyle(document.documentElement);
+          const v = (name: string) => cs.getPropertyValue(name).trim();
+          paintCover(ctx, W, H, canvas.dataset.cover!, {
+            paper: v('--bg'),
+            ink: v('--fg'),
+            red: v('--accent'),
+          });
+        },
+      });
+      if (dispose) disposers.push(dispose);
+    });
+  }
+
+  document.addEventListener('astro:page-load', init);
+  document.addEventListener('astro:before-swap', () => {
+    disposers.forEach((d) => d());
+    disposers = [];
+  });
+</script>
+
+<style>
+  .cover {
+    height: clamp(200px, 27vw, 340px);
+    border-bottom: 5px solid var(--fg);
+    background: var(--bg);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>

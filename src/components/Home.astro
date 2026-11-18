@@ -1,0 +1,344 @@
+---
+import PostList from './PostList.astro';
+import { getPosts, postsOfSeries, seriesUrl, url } from '../lib/posts';
+import { links, seriesMeta, site } from '../site.config';
+
+const posts = await getPosts();
+// 系列文章在各自的模块里展示；下面的「文章」只列不属于任何系列的
+const loose = posts.filter((p) => !p.data.series);
+const recent = loose.slice(0, 8);
+const modules = Object.entries(seriesMeta).map(([key, meta]) => ({
+  key,
+  title: meta.title,
+  animated: meta.hero === 'cayley',
+  chapters: postsOfSeries(posts, key),
+}));
+---
+
+<section class="hero" data-hero>
+  <canvas class="hero-canvas" data-glass data-text={site.name.toUpperCase()} aria-hidden="true"></canvas>
+  <h1 class="hero-name">{site.name}</h1>
+  <div class="hero-foot wrap">
+    {site.bio && <p class="hero-bio">{site.bio}</p>}
+    {
+      links.length > 0 && (
+        <nav class="hero-links" aria-label="链接">
+          {links.map((l) => (
+            <a href={l.href} rel="me noopener">
+              {l.label}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+    <a class="hero-down" href="#posts" aria-label="向下看文章">↓</a>
+  </div>
+</section>
+
+{
+  modules.map((m) => (
+    <section class="wrap module" id={m.key}>
+      <a class="slab" href={seriesUrl(m.key)}>
+        {m.animated && <canvas class="slab-disc" data-tree-disc aria-hidden="true" />}
+        <span class="slab-title">{m.title}</span>
+        <span class="slab-meta mono">{m.chapters.length} 章</span>
+        <span class="slab-arrow" aria-hidden="true">
+          →
+        </span>
+      </a>
+      {m.chapters.length > 0 && <PostList posts={m.chapters.slice(0, 6)} numbered />}
+      {m.chapters.length > 6 && (
+        <a class="more mono" href={seriesUrl(m.key)}>
+          全部 {m.chapters.length} 章 →
+        </a>
+      )}
+    </section>
+  ))
+}
+
+{
+  loose.length > 0 && (
+    <section class="wrap latest" id="posts">
+      <div class="section-label">
+        <span class="label">文章</span>
+        {loose.length > recent.length && (
+          <a class="mono" href={url('/posts/')}>
+            全部 {posts.length} →
+          </a>
+        )}
+      </div>
+      <PostList posts={recent} />
+    </section>
+  )
+}
+
+<script>
+  import { mountGlass } from '../lib/glass';
+  import { drawTree } from '../lib/freegroup';
+  import { paintHome, posterFonts, STEP_SECONDS } from '../lib/poster';
+
+  let dispose: (() => void) | null = null;
+
+  async function init() {
+    dispose?.();
+    dispose = null;
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-glass]');
+    if (!canvas) return;
+    const hero = canvas.closest<HTMLElement>('[data-hero]')!;
+    const text = canvas.dataset.text ?? '';
+    try {
+      await Promise.all(posterFonts.map((f) => document.fonts.load(f, text)));
+    } catch {}
+    if (!canvas.isConnected) return;
+
+    dispose = mountGlass(canvas, {
+      intro: 1500,
+      count: canvas.clientWidth < canvas.clientHeight ? 4 : 6,
+      paint(ctx, W, H, progress) {
+        const cs = getComputedStyle(document.documentElement);
+        const v = (name: string) => cs.getPropertyValue(name).trim();
+        const palette = { paper: v('--bg'), ink: v('--fg'), red: v('--accent') };
+        paintHome(ctx, W, H, text, palette, progress);
+      },
+    });
+    // WebGL 不可用时退回普通的大字标题
+    hero.classList.toggle('no-gl', !dispose);
+  }
+
+  // ── 群论模块里的小圆盘：同一棵 Cayley 树，不带玻璃，纯 2D ──
+  let stopDiscs: (() => void) | null = null;
+
+  function initDiscs() {
+    stopDiscs?.();
+    stopDiscs = null;
+    const canvases = [...document.querySelectorAll<HTMLCanvasElement>('[data-tree-disc]')];
+    if (!canvases.length) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const visible = new Set<Element>();
+    const io = new IntersectionObserver((entries) =>
+      entries.forEach((en) => (en.isIntersecting ? visible.add(en.target) : visible.delete(en.target))),
+    );
+    canvases.forEach((c) => io.observe(c));
+    let raf = 0;
+    const t0 = performance.now();
+
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      const cs = getComputedStyle(document.documentElement);
+      const v = (name: string) => cs.getPropertyValue(name).trim();
+      const line = v('--fg'); // 树
+      const arc = v('--bg'); // 基本域的弧
+      const red = v('--accent');
+      for (const canvas of canvases) {
+        if (!visible.has(canvas)) continue;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const size = Math.round(canvas.clientWidth * dpr);
+        if (canvas.width !== size) canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d')!;
+        const R = size / 2 - 2 * dpr;
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = red;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, R, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.save();
+        ctx.clip();
+        const seconds = reduced ? 0 : (now - t0) / 1000;
+        drawTree(ctx, size / 2, size / 2, R, seconds / STEP_SECONDS, { a: line, b: line, node: line, tile: arc }, {
+          rotate: -13,
+          minLen: 2.2 * dpr,
+          weight: Math.max(1, R / 260),
+        });
+        ctx.restore();
+      }
+      if (reduced) cancelAnimationFrame(raf);
+    };
+    raf = requestAnimationFrame(frame);
+    stopDiscs = () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+    };
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    init();
+    initDiscs();
+  });
+  document.addEventListener('astro:before-swap', () => {
+    dispose?.();
+    dispose = null;
+    stopDiscs?.();
+    stopDiscs = null;
+  });
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    height: 100svh;
+    min-height: 460px;
+    overflow: hidden;
+    border-bottom: 5px solid var(--fg);
+  }
+  .hero-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  /* 名字实际画在 canvas 里；这个 h1 给屏幕阅读器、搜索引擎和无 WebGL 的情况用 */
+  .hero-name {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--display);
+    font-weight: 900;
+    font-synthesis: none;
+    font-size: clamp(4rem, 24vw, 22rem);
+    line-height: 1;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+  :global(html.js) .hero:not(.no-gl) .hero-name {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .hero-foot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    margin-inline: auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-bottom: clamp(1.2rem, 3vw, 2rem);
+    pointer-events: none;
+  }
+  .hero-foot > * {
+    pointer-events: auto;
+  }
+  .hero-bio {
+    max-width: 28em;
+    font-weight: 600;
+  }
+  .hero-links {
+    display: flex;
+    gap: 1.3rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .hero-links a:hover {
+    color: var(--accent);
+  }
+  .hero-down {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 1.15rem;
+    font-weight: 700;
+    transition: background 0.25s, transform 0.5s var(--ease);
+  }
+  .hero-down:hover {
+    background: var(--accent);
+    color: var(--on-accent);
+    transform: translateY(4px);
+  }
+
+  .latest,
+  .module {
+    padding-top: clamp(3.5rem, 8vw, 6.5rem);
+  }
+
+  /* ───────────── 系列模块：一块反色的厚板，右边压着会动的红色圆盘 ───────────── */
+  .slab {
+    position: relative;
+    display: block;
+    height: clamp(190px, 24vw, 300px);
+    overflow: hidden;
+    background: var(--fg);
+    color: var(--bg);
+    isolation: isolate;
+  }
+  /* 一道红色斜杠，从左下穿到右上 */
+  .slab::before {
+    content: '';
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    top: 62%;
+    height: clamp(8px, 1.1vw, 14px);
+    background: var(--accent);
+    transform: rotate(-13deg);
+    z-index: -1;
+  }
+  .slab-disc {
+    position: absolute;
+    right: clamp(-2rem, 4vw, 5rem);
+    top: 50%;
+    width: clamp(240px, 34vw, 430px);
+    aspect-ratio: 1;
+    transform: translateY(-50%);
+    transition: transform 0.9s var(--ease);
+  }
+  .slab:hover .slab-disc {
+    transform: translateY(-50%) scale(1.07);
+  }
+  .slab-title {
+    position: absolute;
+    left: clamp(1.1rem, 3vw, 2.4rem);
+    bottom: clamp(0.5rem, 1.6vw, 1.3rem);
+    font-family: var(--display);
+    font-size: clamp(4.2rem, 13vw, 10.5rem);
+    font-weight: 900;
+    font-synthesis: none;
+    line-height: 1;
+    text-transform: uppercase;
+    transition: transform 0.6s var(--ease);
+  }
+  .slab:hover .slab-title {
+    transform: translateX(0.12em);
+  }
+  .slab-meta {
+    position: absolute;
+    left: clamp(1.2rem, 3vw, 2.5rem);
+    top: clamp(1rem, 2vw, 1.6rem);
+    color: inherit;
+    opacity: 0.75;
+  }
+  .slab-arrow {
+    position: absolute;
+    right: clamp(1rem, 2.4vw, 1.8rem);
+    top: clamp(0.6rem, 1.6vw, 1.2rem);
+    font-size: clamp(1.4rem, 2.6vw, 2rem);
+    font-weight: 700;
+    line-height: 1;
+    transition: transform 0.5s var(--ease);
+  }
+  .slab:hover .slab-arrow {
+    transform: translateX(6px);
+  }
+  .module :global(.rows) {
+    border-top: 0;
+  }
+  .more {
+    display: inline-block;
+    margin-top: 1rem;
+  }
+  .more:hover {
+    color: var(--accent);
+  }
+  .empty {
+    padding-block: 2rem;
+    border-top: 5px solid var(--fg);
+  }
+</style>

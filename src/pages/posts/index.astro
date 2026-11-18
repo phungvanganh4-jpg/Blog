@@ -1,0 +1,68 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostList from '../../components/PostList.astro';
+import { getPosts, postsOfSeries, seriesUrl, tagUrl } from '../../lib/posts';
+import { seriesMeta } from '../../site.config';
+
+const posts = await getPosts();
+const years = [...new Set(posts.map((p) => p.data.date.getFullYear()))];
+const tags = [...new Set(posts.flatMap((p) => p.data.tags))];
+const series = Object.entries(seriesMeta)
+  .map(([key, meta]) => ({ key, title: meta.title, count: postsOfSeries(posts, key).length }))
+  .filter((s) => s.count > 0);
+---
+
+<Base title="文章" cover="posts">
+  <div class="wrap page">
+    <h1 class="title rise">文章</h1>
+
+    {
+      (series.length > 0 || tags.length > 0) && (
+        <div class="filters rise" style="--i:1">
+          {series.map((s) => (
+            <a class="chip strong" href={seriesUrl(s.key)}>
+              {s.title} · {s.count}
+            </a>
+          ))}
+          {tags.map((t) => (
+            <a class="chip" href={tagUrl(t)}>
+              #{t}
+            </a>
+          ))}
+        </div>
+      )
+    }
+
+    {
+      years.map((year) => (
+        <section class="year">
+          <p class="mono year-label">{year}</p>
+          <PostList posts={posts.filter((p) => p.data.date.getFullYear() === year)} />
+        </section>
+      ))
+    }
+    {posts.length === 0 && <p class="mono empty">还没有文章</p>}
+  </div>
+</Base>
+
+<style>
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 2rem;
+  }
+  .chip.strong {
+    color: var(--fg);
+    border-color: var(--fg);
+  }
+  .year {
+    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+  .year-label {
+    padding-bottom: 0.9rem;
+  }
+  .empty {
+    margin-top: 3rem;
+  }
+</style>

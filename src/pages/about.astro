@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import { links, site } from '../site.config';
+---
+
+<Base title="关于" cover="about">
+  <div class="wrap page">
+    <h1 class="title rise">{site.name}</h1>
+    {site.bio && <p class="bio rise" style="--i:1">{site.bio}</p>}
+    {
+      links.length > 0 && (
+        <ul class="rows links">
+          {links.map((l) => (
+            <li>
+              <a class="row" href={l.href} rel="me noopener">
+                <span class="row-title">{l.label}</span>
+                <span class="row-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</Base>
+
+<style>
+  .bio {
+    margin-top: 2rem;
+    max-width: 34em;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: var(--fg-2);
+  }
+  .links {
+    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+</style>

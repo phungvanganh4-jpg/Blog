@@ -1,0 +1,138 @@
+---
+import { links, seriesMeta, site } from '../site.config';
+import { url } from '../lib/posts';
+
+const path = Astro.url.pathname;
+const nav = [
+  { href: '/posts/', label: '文章' },
+  ...Object.entries(seriesMeta).map(([key, meta]) => ({ href: `/series/${key}/`, label: meta.title })),
+];
+if (site.bio || links.length) nav.push({ href: '/about/', label: '关于' });
+const isActive = (href: string) => path.startsWith(url(href));
+---
+
+<header class="bar">
+  <nav class="pill" aria-label="主导航">
+    <a class="brand" href={url('/')}>{site.name}</a>
+    <span class="sep" aria-hidden="true"></span>
+    {
+      nav.map((item) => (
+        <a
+          class:list={['item', { active: isActive(item.href) }]}
+          href={url(item.href)}
+          aria-current={isActive(item.href) ? 'page' : undefined}
+        >
+          {item.label}
+        </a>
+      ))
+    }
+    <button class="toggle" type="button" data-theme-toggle aria-label="切换明暗主题">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+        <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path>
+      </svg>
+    </button>
+  </nav>
+</header>
+
+<script>
+  document.addEventListener('click', (event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLElement>('[data-theme-toggle]');
+    if (!btn) return;
+    const root = document.documentElement;
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    const apply = () => {
+      root.dataset.theme = next;
+      try {
+        localStorage.setItem('theme', next);
+      } catch {}
+      document.dispatchEvent(new Event('themechange'));
+    };
+
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduced) return apply();
+
+    const r = btn.getBoundingClientRect();
+    root.style.setProperty('--reveal-x', `${r.left + r.width / 2}px`);
+    root.style.setProperty('--reveal-y', `${r.top + r.height / 2}px`);
+    root.classList.add('theme-switching');
+    document.startViewTransition(apply).finished.finally(() => root.classList.remove('theme-switching'));
+  });
+</script>
+
+<style>
+  .bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    justify-content: center;
+    padding: 1rem var(--gutter) 0;
+    pointer-events: none;
+  }
+  .pill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.3rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 58%, transparent);
+    backdrop-filter: blur(22px) saturate(1.6);
+    -webkit-backdrop-filter: blur(22px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, var(--fg) 8%, transparent),
+      0 12px 36px -14px rgba(0, 0, 0, 0.4);
+  }
+  .brand {
+    font-family: var(--display);
+    font-weight: 900;
+    font-synthesis: none;
+    font-size: 1.08rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.42rem 0.95rem;
+    border-radius: 999px;
+  }
+  .sep {
+    width: 1px;
+    height: 1.1rem;
+    background: var(--line-2);
+    margin-inline: 0.15rem 0.3rem;
+  }
+  .item {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    color: var(--fg-2);
+    transition: color 0.2s, background 0.25s;
+  }
+  .item:hover {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+  }
+  .item.active {
+    color: var(--bg);
+    background: var(--fg);
+  }
+  .toggle {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-left: 0.15rem;
+    border-radius: 50%;
+    color: var(--fg-2);
+    transition: color 0.2s, background 0.25s, transform 0.6s var(--ease);
+  }
+  .toggle:hover {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+    transform: rotate(180deg);
+  }
+</style>

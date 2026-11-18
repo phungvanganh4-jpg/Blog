@@ -1,0 +1,75 @@
+---
+// 群论系列页的头图：红色圆盘里是自由群 F₂ 的 Cayley 树，沿斜轴无缝循环地流动；
+// 上面照例漂着玻璃液珠。
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<section class="ghero">
+  <canvas data-group-hero data-text={title} aria-hidden="true"></canvas>
+  <h1 class="sr-only">{title}</h1>
+</section>
+
+<script>
+  import { mountGlass } from '../lib/glass';
+  import { paintSeries, posterFonts } from '../lib/poster';
+
+  let dispose: (() => void) | null = null;
+
+  async function init() {
+    dispose?.();
+    dispose = null;
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-group-hero]');
+    if (!canvas) return;
+    const text = canvas.dataset.text ?? '';
+    try {
+      await Promise.all(posterFonts.map((f) => document.fonts.load(f, text)));
+    } catch {}
+    if (!canvas.isConnected) return;
+
+    const palette = () => {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (name: string) => cs.getPropertyValue(name).trim();
+      return { paper: v('--bg'), ink: v('--fg'), red: v('--accent') };
+    };
+    let colors = palette();
+    const onTheme = () => (colors = palette());
+    document.addEventListener('themechange', onTheme);
+
+    const stop = mountGlass(canvas, {
+      live: true,
+      maxDpr: 1.5,
+      count: canvas.clientWidth < canvas.clientHeight ? 3 : 4,
+      scale: 0.9,
+      phase: 40,
+      paint: (ctx, W, H, _progress, seconds) => paintSeries(ctx, W, H, text, colors, seconds),
+    });
+    dispose = () => {
+      document.removeEventListener('themechange', onTheme);
+      stop?.();
+    };
+  }
+
+  document.addEventListener('astro:page-load', init);
+  document.addEventListener('astro:before-swap', () => {
+    dispose?.();
+    dispose = null;
+  });
+</script>
+
+<style>
+  .ghero {
+    position: relative;
+    height: clamp(380px, 76svh, 780px);
+    border-bottom: 5px solid var(--fg);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>

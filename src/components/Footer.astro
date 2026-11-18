@@ -1,0 +1,38 @@
+---
+import { links, site } from '../site.config';
+import { url } from '../lib/posts';
+
+const year = new Date().getFullYear();
+const span = year > site.since ? `${site.since}–${year}` : `${site.since}`;
+---
+
+<footer class="wrap foot mono">
+  <span>© {span} {site.name}</span>
+  <nav aria-label="页脚">
+    {links.map((l) => <a href={l.href} rel="me noopener">{l.label}</a>)}
+    <a href={url('/rss.xml')}>RSS</a>
+  </nav>
+</footer>
+
+<style>
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem 2rem;
+    margin-top: clamp(5rem, 12vw, 9rem);
+    padding-block: 1.6rem 2.2rem;
+    border-top: 5px solid var(--fg);
+    color: var(--fg-2);
+  }
+  nav {
+    display: flex;
+    gap: 1.4rem;
+  }
+  a {
+    transition: color 0.2s;
+  }
+  a:hover {
+    color: var(--accent);
+  }
+</style>

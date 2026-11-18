@@ -1,0 +1,342 @@
+---
+import { render } from 'astro:content';
+import 'katex/dist/katex.min.css';
+import 'node-tikzjax/css/fonts.css';
+import '../../styles/prose.css';
+import Base from '../../layouts/Base.astro';
+import {
+  fmtDate,
+  getPosts,
+  pad2,
+  postsOfSeries,
+  postUrl,
+  readingMinutes,
+  seriesUrl,
+  tagUrl,
+  url,
+} from '../../lib/posts';
+import { seriesMeta } from '../../site.config';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post, posts } }));
+}
+
+const { post, posts } = Astro.props;
+const { Content, headings } = await render(post);
+const { data } = post;
+
+const series = data.series ? seriesMeta[data.series] : undefined;
+const chapters = data.series ? postsOfSeries(posts, data.series) : [];
+const idx = chapters.findIndex((p) => p.id === post.id);
+
+// 系列文章按章节顺序翻页；零散文章按时间翻页
+const timeline = series ? chapters : [...posts].reverse();
+const at = timeline.findIndex((p) => p.id === post.id);
+const prev = at > 0 ? timeline[at - 1] : undefined;
+const next = at < timeline.length - 1 ? timeline[at + 1] : undefined;
+
+const toc = headings.filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');
+---
+
+<Base title={data.title} description={data.description} article cover={post.id}>
+  <div class="progress" aria-hidden="true"><i data-progress></i></div>
+
+  <article>
+    <header class="head wrap">
+      {
+        series ? (
+          <a class="label" href={seriesUrl(data.series!)}>
+            {series.title} · {pad2(data.order ?? idx + 1)}
+          </a>
+        ) : (
+          <a class="label" href={url('/posts/')}>
+            ← 文章
+          </a>
+        )
+      }
+      <h1>{data.title}</h1>
+      {data.description && <p class="desc">{data.description}</p>}
+      <p class="mono meta">
+        <time datetime={data.date.toISOString()}>{fmtDate(data.date)}</time>
+        <span>{readingMinutes(post.body)} min</span>
+        {data.tags.map((t) => <a href={tagUrl(t)}>#{t}</a>)}
+      </p>
+    </header>
+
+    <div class="layout wrap">
+      <div class="prose" data-prose>
+        <Content />
+      </div>
+      {
+        toc.length > 1 && (
+          <nav class="toc" aria-label="目录">
+            <ol>
+              {toc.map((h) => (
+                <li class={`d${h.depth}`}>
+                  <a href={`#${h.slug}`} data-toc={h.slug}>
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )
+      }
+    </div>
+  </article>
+
+  {
+    (prev || next) && (
+      <nav class="pager wrap" aria-label="上一篇 / 下一篇">
+        {prev ? (
+          <a class="pager-link" href={postUrl(prev)}>
+            <span class="mono">←</span>
+            <span class="pager-title">{prev.data.title}</span>
+          </a>
+        ) : (
+          <span />
+        )}
+        {next ? (
+          <a class="pager-link next" href={postUrl(next)}>
+            <span class="mono">→</span>
+            <span class="pager-title">{next.data.title}</span>
+          </a>
+        ) : (
+          <span />
+        )}
+      </nav>
+    )
+  }
+</Base>
+
+<script>
+  import 'katex/contrib/copy-tex';
+  let cleanup: (() => void) | null = null;
+
+  function init() {
+    cleanup?.();
+    cleanup = null;
+    const prose = document.querySelector<HTMLElement>('[data-prose]');
+    if (!prose) return;
+
+    // 代码块复制按钮
+    prose.querySelectorAll<HTMLElement>('pre').forEach((pre) => {
+      if (pre.querySelector('.code-copy')) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy';
+      btn.textContent = '复制';
+      btn.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? '');
+        btn.textContent = '已复制';
+        setTimeout(() => (btn.textContent = '复制'), 1400);
+      });
+      pre.append(btn);
+    });
+
+    // 阅读进度 + 目录高亮
+    const bar = document.querySelector<HTMLElement>('[data-progress]');
+    const links = new Map<string, HTMLElement>();
+    document.querySelectorAll<HTMLElement>('[data-toc]').forEach((a) => links.set(a.dataset.toc!, a));
+    const heads = [...prose.querySelectorAll<HTMLElement>('h2[id], h3[id]')];
+
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const rect = prose.getBoundingClientRect();
+      const total = rect.height - window.innerHeight * 0.6;
+      const done = Math.min(1, Math.max(0, -rect.top / Math.max(1, total)));
+      if (bar) bar.style.transform = `scaleX(${done})`;
+
+      let current: HTMLElement | undefined;
+      for (const h of heads) {
+        if (h.getBoundingClientRect().top < 140) current = h;
+        else break;
+      }
+      links.forEach((a, id) => a.classList.toggle('active', id === current?.id));
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+    cleanup = () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }
+
+  document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+  .progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 4px;
+    z-index: 50;
+  }
+  .progress i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  .head,
+  .layout,
+  .pager {
+    --measure: 44rem;
+    max-width: calc(var(--measure) + var(--gutter) * 2);
+  }
+  .head {
+    padding-top: clamp(2rem, 4.5vw, 3.2rem);
+  }
+  .head .label {
+    font-size: 0.95rem;
+    transition: background 0.2s;
+  }
+  .head .label:hover {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .head h1 {
+    margin-top: 1.4rem;
+    font-family: var(--display);
+    font-size: clamp(2.5rem, 7vw, 4.8rem);
+    font-weight: 900;
+    font-synthesis: none;
+    line-height: 1.08;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+  .desc {
+    margin-top: 1.3rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--fg-2);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.2rem;
+    margin-top: 1.5rem;
+    padding-bottom: clamp(1.6rem, 3vw, 2.2rem);
+    border-bottom: 2px solid var(--fg);
+    color: var(--fg-2);
+  }
+  .meta a:hover {
+    color: var(--accent);
+  }
+
+  .layout {
+    position: relative;
+    padding-top: clamp(2rem, 4vw, 3rem);
+  }
+  /* 目录挂在正文右侧的页边里 */
+  .toc {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 100%;
+    width: 13rem;
+    padding-top: clamp(2rem, 4vw, 3rem);
+  }
+  .toc ol {
+    position: sticky;
+    top: 6rem;
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 0.2rem;
+    border-left: 2px solid var(--fg);
+  }
+  .toc a {
+    position: relative;
+    display: block;
+    padding: 0.3rem 0 0.3rem 1.1rem;
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--fg-3);
+    transition: color 0.2s;
+  }
+  .toc a::before {
+    content: '';
+    position: absolute;
+    left: -0.5rem;
+    top: 0.72em;
+    width: 0.62rem;
+    height: 0.62rem;
+    background: var(--accent);
+    transform: scale(0) rotate(0deg);
+    transition: transform 0.35s var(--ease);
+  }
+  .toc .d3 a {
+    padding-left: 1.9rem;
+  }
+  .toc a:hover,
+  .toc a:global(.active) {
+    color: var(--fg);
+  }
+  .toc a:global(.active) {
+    font-weight: 700;
+  }
+  .toc a:global(.active)::before {
+    transform: scale(1) rotate(12deg);
+  }
+  @media (max-width: 1240px) {
+    .toc {
+      display: none;
+    }
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin-top: clamp(4rem, 8vw, 6rem);
+    border: 3px solid var(--fg);
+  }
+  .pager-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.1rem 1.3rem 1.3rem;
+    transition: background 0.3s, color 0.3s;
+  }
+  .pager-link.next {
+    text-align: right;
+    border-left: 3px solid var(--fg);
+  }
+  .pager-title {
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 900;
+    font-synthesis: none;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+  .pager-link:hover {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .pager-link:hover .mono {
+    color: inherit;
+  }
+  @media (max-width: 560px) {
+    .pager {
+      grid-template-columns: 1fr;
+    }
+    .pager-link.next {
+      border-left: 0;
+      border-top: 3px solid var(--fg);
+    }
+  }
+</style>

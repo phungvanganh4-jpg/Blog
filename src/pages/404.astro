@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import { url } from '../lib/posts';
+---
+
+<Base title="404" cover="404">
+  <div class="wrap page">
+    <h1 class="title">404</h1>
+    <a class="chip" href={url('/')} style="display:inline-block;margin-top:2rem">← 首页</a>
+  </div>
+</Base>
