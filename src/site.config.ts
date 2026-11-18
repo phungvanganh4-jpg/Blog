@@ -22,7 +22,7 @@ export const site = {
  * hero: 'cayley' 的系列页用 Cayley 树动画当头图；不写就用普通的封面横幅。
  */
 export const seriesMeta: Record<string, { title: string; hero?: 'cayley' }> = {
-  'group-theory': { title: '群论', hero: 'cayley' },
+  'group-theory': { title: 'Group Theory', hero: 'cayley' },
 };
 
 export const links = Object.entries(site.links)

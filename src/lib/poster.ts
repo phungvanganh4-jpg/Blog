@@ -278,13 +278,27 @@ export function paintSeries(ctx: Ctx, W: number, H: number, text: string, p: Pal
   ctx.fillStyle = p.red;
   ctx.fillRect(disc.x + R * 1.42, disc.y - R * 0.5, R * 0.16, R * 0.16);
 
-  // 标题：压在粗杠上方的纸面上，左边跟一块点阵
-  const f = portrait ? fit(ctx, text, R * 1.15, R * 0.5) : fit(ctx, text, R * 2.4, R * 0.62);
+  // 标题：压在粗杠上方的纸面上，右端贴着圆盘；多个单词就一词一行叠起来。左边跟一块点阵
+  const lines = text.split(/\s+/).filter(Boolean);
+  const gap = 0.16; // 行距（以大写字母高度为单位）
+  const maxW = portrait ? R * 1.15 : R * 2.3;
+  const maxH = portrait ? R * 0.56 : R * 0.8;
+  const capMax = maxH / (lines.length + (lines.length - 1) * gap);
+  const size = Math.min(...lines.map((line) => fit(ctx, line, maxW, capMax).size));
+  ctx.font = font(size);
   ctx.fillStyle = p.ink;
   ctx.textBaseline = 'alphabetic';
-  const tx = disc.x - R * 1.16 - f.w;
-  ctx.fillText(text, tx + f.left, barY - R * 0.1);
-  dots(ctx, tx - R * 0.72, barY - R * 0.3, 7, 3, R * 0.075, R * 0.016, p.ink);
+  const right = disc.x - R * 1.16;
+  let left = right;
+  let y = barY - R * 0.1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = ctx.measureText(lines[i]);
+    const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+    ctx.fillText(lines[i], right - w + m.actualBoundingBoxLeft, y);
+    left = Math.min(left, right - w);
+    y -= m.actualBoundingBoxAscent * (1 + gap);
+  }
+  dots(ctx, left - R * 0.72, barY - R * 0.3, 7, 3, R * 0.075, R * 0.016, p.ink);
 
   ctx.restore();
 }

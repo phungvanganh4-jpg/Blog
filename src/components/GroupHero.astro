@@ -8,7 +8,7 @@ const { title } = Astro.props;
 ---
 
 <section class="ghero">
-  <canvas data-group-hero data-text={title} aria-hidden="true"></canvas>
+  <canvas data-group-hero data-text={title.toUpperCase()} aria-hidden="true"></canvas>
   <h1 class="sr-only">{title}</h1>
 </section>
 
