@@ -103,7 +103,8 @@ export function paintHome(ctx: Ctx, W: number, H: number, text: string, p: Palet
   const { w: tw, cap: c } = f;
   const far = (W + H) * 2;
 
-  ctx.translate(W * (portrait ? 0.5 : 0.49), H * (portrait ? 0.48 : 0.5));
+  // 横幅顶上压着导航，构图整体往下放一点
+  ctx.translate(W * (portrait ? 0.5 : 0.49), H * (portrait ? 0.48 : 0.57));
   ctx.rotate(rad(theta));
 
   // 以下坐标都在「沿主轴」的坐标系里：x 沿轴向右上，y 垂直于轴向下
@@ -138,8 +139,11 @@ export function paintHome(ctx: Ctx, W: number, H: number, text: string, p: Palet
   const tip = { x: tw * 0.2 - R * 0.05 - slide, y: top - c * 0.22 };
   ctx.fillStyle = p.ink;
   ctx.beginPath();
-  ctx.moveTo(tip.x - c * 3.4, tip.y - c * 0.98);
-  ctx.lineTo(tip.x - c * 3.4, tip.y + c * 0.15);
+  // 楔形保持同样的张角，但一直延伸到画面之外（横幅很宽时也不会露出尾巴）
+  const reach = Math.max(c * 3.4, W * 1.3);
+  const widen = reach / (c * 3.4);
+  ctx.moveTo(tip.x - reach, tip.y - c * 0.98 * widen);
+  ctx.lineTo(tip.x - reach, tip.y + c * 0.15 * widen);
   ctx.lineTo(tip.x, tip.y);
   ctx.closePath();
   ctx.fill();
